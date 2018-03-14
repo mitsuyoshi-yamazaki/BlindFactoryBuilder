@@ -1,0 +1,11 @@
+{
+    "name": "BlindFactoryBuilder",
+    "version": "0.0.1",
+    "factorio_version": "0.15.40",
+    "date": "2018-03-14",
+    "title": "Blind Factory Builder",
+    "author": "mitsuyoshi-yamazaki",
+    "homepage": "https://github.com/mitsuyoshi-yamazaki",
+    "description": "https://github.com/mitsuyoshi-yamazaki",
+    "dependencies": []
+ }
