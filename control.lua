@@ -67,12 +67,20 @@ function build_missing_object(player)
 end
 
 function construct(player, object_type)
+  if global.now_building == nil then
+    global.now_building = {}
+  end
+ 
+  if global.now_building[object_type] ~= nil then
+    log_to(player, object_type.." is now being built")
+    return
+  end
+  log_to(player, global.now_building)
+
   local assembler_blueprint = global.blueprints[2]
   local surface = player.surface
   local initial_position = {x=0, y=0}
   local position = surface.find_non_colliding_position("assembling-machine-3", initial_position, 10, 5)
-
-  log_to(player, position)
 
   if position == nil then
     log_to(player, "Can't find non colliding position")
@@ -89,6 +97,8 @@ function construct(player, object_type)
   end
 
   assembler.recipe = object_type
+  
+  global.now_building[object_type] = true
 end
 
 function log_to(player, message)
