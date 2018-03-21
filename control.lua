@@ -17,21 +17,17 @@ end)
 -- Functions
 
 function blind_factory_builder(player)
-  if global.blueprints ~= nil then
-    return
+  if global.blueprints == nil then
+    local blueprints = get_init_blueprints(player)
+    if blueprints == nil then 
+      return
+    end      
+    global.blueprints = blueprints
   end
 
-  local blueprints = get_init_blueprints(player)
-  if blueprints == nil then 
-    return
-  end
-
-  global.blueprints = blueprints[2]
-
-  log_to(player, "blueprints set")
-
-  global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
-  --check_missing_construction_object_alert(player)
+  --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
+  
+  build_missing_object(player)
 end
 
 function get_init_blueprints(player)
@@ -55,7 +51,7 @@ function get_init_blueprints(player)
   return inventory
 end
 
-function check_missing_construction_object_alert(player)
+function build_missing_object(player)
   local missing_construction_object_alerts = player.get_alerts{}[0][3]
 
   if next(missing_construction_object_alerts) == nil then
@@ -64,14 +60,36 @@ function check_missing_construction_object_alert(player)
 
   for _, alert in pairs(missing_construction_object_alerts) do
     local missing_object_type = alert.target.ghost_prototype.type
-    --log_to(player, "Missing "..missing_object_type)
+    log_to(player, "Missing "..missing_object_type)
 
     construct(player, missing_object_type)
   end
 end
 
 function construct(player, object_type)
+  local assembler_blueprint = global.blueprints[2]
+  local surface = player.surface
+  local initial_position = {x=0, y=0}
+  local position = surface.find_non_colliding_position("assembling-machine-3", initial_position, 10, 5)
 
+  log_to(player, position)
+
+  if position == nil then
+    log_to(player, "Can't find non colliding position")
+    return
+  end
+
+  local direction = defines.direction.north
+  local assembler = assembler_blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=direction}
+  
+  if assembler[1] == nil then
+    log_to(player, "Can't build")
+    return
+  end
+
+  log_to(player, assembler)
+  log_to(player, assembler[1])
+  log_to(player, assembler[1].type)
 end
 
 function log_to(player, message)
