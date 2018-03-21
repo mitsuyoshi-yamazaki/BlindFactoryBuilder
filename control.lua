@@ -80,16 +80,15 @@ function construct(player, object_type)
   end
 
   local direction = defines.direction.north
-  local assembler = assembler_blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=direction}
-  
-  if assembler[1] == nil then
+  local built = assembler_blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=direction}
+  local assembler = built[1]
+
+  if assembler == nil then
     log_to(player, "Can't build")
     return
   end
 
-  log_to(player, assembler)
-  log_to(player, assembler[1])
-  log_to(player, assembler[1].type)
+  assembler.recipe = object_type
 end
 
 function log_to(player, message)
