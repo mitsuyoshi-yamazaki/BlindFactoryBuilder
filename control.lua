@@ -3,7 +3,9 @@ require "util"  -- I don't know what it does
 -- 
 
 DEBUG = true
-FORCE_RESET = false
+RESET_ALL = false
+RESET_BLUEPRINTS = false
+RESET = true
 
 --
 
@@ -18,11 +20,27 @@ end)
 -- Functions
 
 function blind_factory_builder(player)
-  if FORCE_RESET then
-    global.blueprints = nil
-    global.now_building = {}
+  if DEBUG then
+    if RESET_ALL then
+      RESET_ALL = false
+      log_to(player, "RESET ALL")
+      global.blueprints = nil
+      global.now_building = {}
+    end
+    
+    if RESET_BLUEPRINTS then
+      RESET_BLUEPRINTS = false
+      log_to(player, "RESET BLUEPRINTs")
+      global.blueprints = nil
+    end
+    
+    if RESET then
+      RESET = false
+      log_to(player, "RESET VARIABLES")
+      global.now_building = {}
+    end
   end
-
+    
   if global.blueprints == nil then
     local blueprints = get_init_blueprints(player)
     if blueprints == nil then 
@@ -66,38 +84,10 @@ function build_missing_object(player)
   end
 
   for _, alert in pairs(missing_construction_object_alerts) do
-    local missing_object_type = alert.target.ghost_prototype.type
-    construct_from_blueprint(player, missing_object_type)
+    local missing_object_type = alert.target.ghost_name
+
+    construct_from_blueprint(player, missing_object_type, alert.position)
   end
-end
-
-function construct_from_blueprint(player, object_type)
-  if global.now_building == nil then
-    global.now_building = {}
-  end 
-  if global.now_building[object_type] ~= nil then
-    return
-  end
-
-  local surface = player.surface
-  local initial_position = {x=0, y=0}
-
-  local assembler_position = surface.find_non_colliding_position("assembling-machine-3", initial_position, 10, 5)
-  if assembler_position == nil then
-    log_to(player, "No place for assembler")
-    return
-  end
-
-  local assembler = player.surface.create_entity{name="entity-ghost", position=assembler_position, direction=defines.direction.north, force=player.force, recipe=object_type, inner_name="assembling-machine-3"}
-
-  log_to(player, assembler)
-
-  if assembler == nil then
-    log_to(player, "Can't build assembler")
-    return
-  end
-
-  global.now_building[object_type] = true
 end
 
 function log_to(player, message)
@@ -107,7 +97,9 @@ function log_to(player, message)
   end
 end
 
-function construct_from_blueprint(player, object_type)
+function construct_from_blueprint(player, object_type, initial_position)
+  initial_position.y = initial_position.y + 60
+
   if global.now_building == nil then
     global.now_building = {}
   end
@@ -119,7 +111,6 @@ function construct_from_blueprint(player, object_type)
   log_to(player, "Construct "..object_type)
 
   local surface = player.surface
-  local initial_position = {x=0, y=0}
 
   local position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
   if position == nil then
@@ -130,10 +121,17 @@ function construct_from_blueprint(player, object_type)
   local blueprint = global.blueprints[2]
   local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
 
+  if next(result) == nil then
+    log_to(player, "Could not construct blueprint")
+    return
+  end
+
   local entities = {}
   for _, entity in pairs(result) do 
     entities[entity.ghost_name] = entity
   end
+
+  log_to(player, result)
 
   local assembler = entities["assembling-machine-3"]
   assembler.recipe = object_type
