@@ -60,8 +60,6 @@ function build_missing_object(player)
 
   for _, alert in pairs(missing_construction_object_alerts) do
     local missing_object_type = alert.target.ghost_prototype.type
-    log_to(player, "Missing "..missing_object_type)
-
     construct(player, missing_object_type)
   end
 end
@@ -69,35 +67,29 @@ end
 function construct(player, object_type)
   if global.now_building == nil then
     global.now_building = {}
-  end
- 
+  end 
   if global.now_building[object_type] ~= nil then
-    log_to(player, object_type.." is now being built")
     return
   end
-  log_to(player, global.now_building)
 
-  local assembler_blueprint = global.blueprints[2]
   local surface = player.surface
   local initial_position = {x=0, y=0}
-  local position = surface.find_non_colliding_position("assembling-machine-3", initial_position, 10, 5)
 
-  if position == nil then
-    log_to(player, "Can't find non colliding position")
+  local assembler_position = surface.find_non_colliding_position("assembling-machine-3", initial_position, 10, 5)
+  if assembler_position == nil then
+    log_to(player, "No place for assembler")
     return
   end
 
-  local direction = defines.direction.north
-  local built = assembler_blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=direction}
-  local assembler = built[1]
+  local assembler = player.surface.create_entity{name="entity-ghost", position=assembler_position, direction=defines.direction.north, force=player.force, recipe=object_type, inner_name="assembling-machine-3"}
+
+  log_to(player, assembler)
 
   if assembler == nil then
-    log_to(player, "Can't build")
+    log_to(player, "Can't build assembler")
     return
   end
 
-  assembler.recipe = object_type
-  
   global.now_building[object_type] = true
 end
 
