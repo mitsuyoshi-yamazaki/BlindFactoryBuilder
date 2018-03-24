@@ -3,6 +3,7 @@ require "util"  -- I don't know what it does
 -- 
 
 DEBUG = true
+FORCE_RESET = false
 
 --
 
@@ -17,9 +18,15 @@ end)
 -- Functions
 
 function blind_factory_builder(player)
+  if FORCE_RESET then
+    global.blueprints = nil
+    global.now_building = {}
+  end
+
   if global.blueprints == nil then
     local blueprints = get_init_blueprints(player)
     if blueprints == nil then 
+      log_to(player, "No blueprint set")
       return
     end      
     global.blueprints = blueprints
@@ -60,11 +67,11 @@ function build_missing_object(player)
 
   for _, alert in pairs(missing_construction_object_alerts) do
     local missing_object_type = alert.target.ghost_prototype.type
-    construct(player, missing_object_type)
+    construct_from_blueprint(player, missing_object_type)
   end
 end
 
-function construct(player, object_type)
+function construct_from_blueprint(player, object_type)
   if global.now_building == nil then
     global.now_building = {}
   end 
@@ -98,4 +105,44 @@ function log_to(player, message)
     player.print(serpent.block(message))
 
   end
+end
+
+function construct_from_blueprint(player, object_type)
+  if global.now_building == nil then
+    global.now_building = {}
+  end
+ 
+  if global.now_building[object_type] ~= nil then
+    --log_to(player, object_type.." is now being built")
+    return
+  end
+  log_to(player, "Construct "..object_type)
+
+  local surface = player.surface
+  local initial_position = {x=0, y=0}
+
+  local position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
+  if position == nil then
+    log_to(player, "No place for construction")
+    return
+  end
+
+  local blueprint = global.blueprints[2]
+  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+
+  local entities = {}
+  for _, entity in pairs(result) do 
+    entities[entity.ghost_name] = entity
+  end
+
+  local assembler = entities["assembling-machine-3"]
+  assembler.recipe = object_type
+
+  local requester_chest = entities["logistic-chest-requester"]
+
+  for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
+    requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount}, i)
+  end
+
+  global.now_building[object_type] = true
 end
