@@ -5,7 +5,7 @@ require "util"  -- I don't know what it does
 DEBUG = true
 RESET_ALL = false
 RESET_BLUEPRINTS = false
-RESET = true
+RESET = false
 
 --
 
@@ -20,6 +20,15 @@ end)
 -- Functions
 
 function blind_factory_builder(player)
+
+  initialize()
+
+  --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
+  
+  build_missing_object(player)
+end
+
+function initialize() 
   if DEBUG then
     if RESET_ALL then
       RESET_ALL = false
@@ -50,9 +59,9 @@ function blind_factory_builder(player)
     global.blueprints = blueprints
   end
 
-  --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
-  
-  build_missing_object(player)
+  if global.now_building == nil then
+    global.now_building = {}
+  end
 end
 
 function get_init_blueprints(player)
@@ -99,16 +108,14 @@ end
 
 function construct_from_blueprint(player, object_type, initial_position)
   initial_position.y = initial_position.y + 60
-
-  if global.now_building == nil then
-    global.now_building = {}
-  end
  
-  if global.now_building[object_type] ~= nil then
-    --log_to(player, object_type.." is now being built")
+  local key = object_type.."{x="..initial_position.x..", y="..initial_position.y.."}"
+
+  if global.now_building[key] ~= nil then
+    log_to(player, key.." is now being built")
     return
   end
-  log_to(player, "Construct "..object_type)
+  log_to(player, "Construct "..key)
 
   local surface = player.surface
 
@@ -128,6 +135,7 @@ function construct_from_blueprint(player, object_type, initial_position)
 
   local entities = {}
   for _, entity in pairs(result) do 
+    --log_to(player, entity.ghost_name)
     entities[entity.ghost_name] = entity
   end
 
@@ -142,5 +150,8 @@ function construct_from_blueprint(player, object_type, initial_position)
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount}, i)
   end
 
-  global.now_building[object_type] = true
+  --local provider_chest = entities["logistic-chest-passive-provider"]
+  --log_to(player, provider_chest.get_inventory(defines.inventory.burnt_result))
+
+  global.now_building[key] = true
 end
