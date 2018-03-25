@@ -7,6 +7,8 @@ RESET_ALL = false
 RESET_BLUEPRINTS = false
 RESET = false
 
+NUMBER_OF_ENTITIES_IN_BLUEPRINT = 6
+
 --
 
 script.on_event(defines.events.on_tick, function(event)
@@ -21,14 +23,87 @@ end)
 
 function blind_factory_builder(player)
 
-  initialize()
+  initialize(player)
 
   --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
   
   build_missing_object(player)
+
+  --test(player)
 end
 
-function initialize() 
+function selected_logistic_network(player)
+  if player.selected == nil then
+    return nil
+  end
+
+  local logistic_network = player.selected.logistic_network
+  if logistic_network == nil then
+    --log_to(player, "no logistic_network")
+    return nil
+  end
+
+  return logistic_network
+end
+
+function logistic_network_covered(player, entity)
+  if entity == nil then
+    return nil
+  end
+
+  local surface = entity.surface
+  if surface == nil then
+    return nil
+  end
+
+  return surface.find_logistic_network_by_position(entity.position, entity.force)
+end
+
+function test(player)
+  local logistic_network = logistic_network_covered(player, player.selected)
+
+  if logistic_network == nil then
+    log_to(player, "no logistic_network")
+    return
+  end
+
+  local storages = logistic_network.storages
+  log_to(player, storages)
+
+  local storage_points = logistic_network.storage_points
+  --log_to(player, storage_points)
+
+  local contents = {}
+
+  for _, storage in pairs(storages) do
+    --log_to(player, storage.get_output_inventory().get_contents())
+
+    for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
+      contents[name] = amount + (contents[name] or 0)
+    end
+  end
+
+  log_to(player, "contents: ")
+  log_to(player, contents)
+  
+end
+
+function get_logistic_system_storage(player, logistic_network)
+  local storages = logistic_network.storages
+  local contents = {}
+
+  for _, storage in pairs(storages) do
+    --log_to(player, storage.get_output_inventory().get_contents())
+
+    for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
+      contents[name] = amount + (contents[name] or 0)
+    end
+  end
+
+  return contents
+end
+
+function initialize(player) 
   if DEBUG then
     if RESET_ALL then
       RESET_ALL = false
@@ -108,14 +183,13 @@ end
 
 function construct_from_blueprint(player, object_type, position) 
   if is_building(object_type, position) then
-    log_to(player, is_building_key(object_type, position).." is now being built")
+    --log_to(player, is_building_key(object_type, position).." is now being built")
     return
   end
   log_to(player, "Construct "..object_type)
 
   local surface = player.surface
-  local initial_position = {x=position.x, y=position.y + 60}
-  --initial_position.y = initial_position.y + 60
+  local initial_position = {x=position.x, y=position.y + 40}
 
   local construct_position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
   if construct_position == nil then
@@ -125,6 +199,22 @@ function construct_from_blueprint(player, object_type, position)
 
   local blueprint = global.blueprints[2]
   local result = blueprint.build_blueprint{surface=surface, force=player.force, position=construct_position, force_build=true, direction=defines.direction.north}
+
+  local entity_count = 0
+  for _ in pairs(result) do entity_count = entity_count + 1 end
+
+  if entity_count ~= NUMBER_OF_ENTITIES_IN_BLUEPRINT then
+    log_to(player, "Could not construct blueprint, conflicting to other ghosts ("..entity_count..")")
+
+    for i, ghost in pairs(result) do
+      ghost.destroy()
+    end
+
+    local next_position = {x=position.x + 5, y=position.y}
+    --construct_from_blueprint(player, object_type, next_position)  
+    -- ここで呼ばなくても、is_buildingフラグが立っていないので、建設され次第collisionしない位置で建築される
+    return
+  end
 
   if next(result) == nil then
     log_to(player, "Could not construct blueprint")
@@ -137,15 +227,34 @@ function construct_from_blueprint(player, object_type, position)
     entities[entity.ghost_name] = entity
   end
 
-  log_to(player, result)
+  --log_to(player, result)
 
   local assembler = entities["assembling-machine-3"]
   assembler.recipe = object_type
 
   local requester_chest = entities["logistic-chest-requester"]
+  local logistic_network = logistic_network_covered(player, requester_chest)
+  local stored_items = {}
+
+  if logistic_network == nil then
+
+  else
+    log_to(player, "No logistic network")
+  end
+
+  local logistic_system_storage = get_logistic_system_storage(player, logistic_network)
+  log_to(player, logistic_system_storage)
 
   for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount}, i)
+
+    if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
+      log_to(player, "lack of "..ingredient.name)
+
+      --construct_from_blueprint(player, ingredient.name, position) -- TODO:
+    else 
+      --log_to(player, "enough amount of "..ingredient.name)
+    end
   end
 
   --local provider_chest = entities["logistic-chest-passive-provider"]
@@ -159,6 +268,7 @@ end
 function add_now_building(object_type, position)
   local key = is_building_key(object_type, position)
   global.now_building[key] = true
+  -- No way to remove any key from now_building
 end
 
 function is_building(object_type, position)
