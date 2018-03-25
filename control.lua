@@ -106,27 +106,25 @@ function log_to(player, message)
   end
 end
 
-function construct_from_blueprint(player, object_type, initial_position)
-  initial_position.y = initial_position.y + 60
- 
-  local key = object_type.."{x="..initial_position.x..", y="..initial_position.y.."}"
-
-  if global.now_building[key] ~= nil then
-    log_to(player, key.." is now being built")
+function construct_from_blueprint(player, object_type, position) 
+  if is_building(object_type, position) then
+    log_to(player, is_building_key(object_type, position).." is now being built")
     return
   end
-  log_to(player, "Construct "..key)
+  log_to(player, "Construct "..object_type)
 
   local surface = player.surface
+  local initial_position = {x=position.x, y=position.y + 60}
+  --initial_position.y = initial_position.y + 60
 
-  local position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
-  if position == nil then
+  local construct_position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
+  if construct_position == nil then
     log_to(player, "No place for construction")
     return
   end
 
   local blueprint = global.blueprints[2]
-  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=construct_position, force_build=true, direction=defines.direction.north}
 
   if next(result) == nil then
     log_to(player, "Could not construct blueprint")
@@ -153,5 +151,21 @@ function construct_from_blueprint(player, object_type, initial_position)
   --local provider_chest = entities["logistic-chest-passive-provider"]
   --log_to(player, provider_chest.get_inventory(defines.inventory.burnt_result))
 
+  add_now_building(object_type, position)
+end
+
+-- Utility
+
+function add_now_building(object_type, position)
+  local key = is_building_key(object_type, position)
   global.now_building[key] = true
+end
+
+function is_building(object_type, position)
+  local key = is_building_key(object_type, position)
+  return global.now_building[key] ~= nil
+end
+
+function is_building_key(object_type, position)
+  return object_type.." {x="..position.x..", y="..position.y.."}" -- Since position could be either Position object or map
 end
