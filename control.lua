@@ -32,6 +32,47 @@ function blind_factory_builder(player)
   --test(player)
 end
 
+function initialize(player) 
+  if DEBUG then
+    if RESET_ALL then
+      RESET_ALL = false
+      log_to(player, "RESET ALL")
+      global.blueprints = nil
+      global.now_building = {}
+    end
+    
+    if RESET_BLUEPRINTS then
+      RESET_BLUEPRINTS = false
+      log_to(player, "RESET BLUEPRINTs")
+      global.blueprints = nil
+    end
+    
+    if RESET then
+      RESET = false
+      log_to(player, "RESET VARIABLES")
+      global.now_building = {}
+      global.build_queue = {}
+    end
+  end
+    
+  if global.blueprints == nil then
+    local blueprints = get_init_blueprints(player)
+    if blueprints == nil then 
+      log_to(player, "No blueprint set")
+      return
+    end      
+    global.blueprints = blueprints
+  end
+
+  if global.now_building == nil then
+    global.now_building = {}
+  end
+
+  if global.build_queue == nil then 
+    global.build_queue = {}
+  end
+end
+
 function selected_logistic_network(player)
   if player.selected == nil then
     return nil
@@ -103,42 +144,6 @@ function get_logistic_system_storage(player, logistic_network)
   return contents
 end
 
-function initialize(player) 
-  if DEBUG then
-    if RESET_ALL then
-      RESET_ALL = false
-      log_to(player, "RESET ALL")
-      global.blueprints = nil
-      global.now_building = {}
-    end
-    
-    if RESET_BLUEPRINTS then
-      RESET_BLUEPRINTS = false
-      log_to(player, "RESET BLUEPRINTs")
-      global.blueprints = nil
-    end
-    
-    if RESET then
-      RESET = false
-      log_to(player, "RESET VARIABLES")
-      global.now_building = {}
-    end
-  end
-    
-  if global.blueprints == nil then
-    local blueprints = get_init_blueprints(player)
-    if blueprints == nil then 
-      log_to(player, "No blueprint set")
-      return
-    end      
-    global.blueprints = blueprints
-  end
-
-  if global.now_building == nil then
-    global.now_building = {}
-  end
-end
-
 function get_init_blueprints(player)
   local selected_entity = player.selected
   if selected_entity == nil then
@@ -172,6 +177,10 @@ function build_missing_object(player)
 
     construct_from_blueprint(player, missing_object_type, alert.position)
   end
+
+  for _, value in pairs(global.build_queue) do
+    construct_from_blueprint(player, value.type, value.position)
+  end
 end
 
 function log_to(player, message)
@@ -189,7 +198,7 @@ function construct_from_blueprint(player, object_type, position)
   log_to(player, "Construct "..object_type)
 
   local surface = player.surface
-  local initial_position = {x=position.x, y=position.y + 40}
+  local initial_position = {x=position.x, y=position.y + 20}
 
   local construct_position = surface.find_non_colliding_position("rocket-silo", initial_position, 10, 5)  -- to find large area
   if construct_position == nil then
@@ -237,21 +246,19 @@ function construct_from_blueprint(player, object_type, position)
   local stored_items = {}
 
   if logistic_network == nil then
-
-  else
     log_to(player, "No logistic network")
+    return
   end
 
   local logistic_system_storage = get_logistic_system_storage(player, logistic_network)
   log_to(player, logistic_system_storage)
 
   for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
-    requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount}, i)
+    requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount * 2}, i)
 
     if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
       log_to(player, "lack of "..ingredient.name)
-
-      --construct_from_blueprint(player, ingredient.name, position) -- TODO:
+      add_queue(ingredient.name, position)
     else 
       --log_to(player, "enough amount of "..ingredient.name)
     end
@@ -261,6 +268,7 @@ function construct_from_blueprint(player, object_type, position)
   --log_to(player, provider_chest.get_inventory(defines.inventory.burnt_result))
 
   add_now_building(object_type, position)
+  remove_from_queue(object_type, position)
 end
 
 -- Utility
@@ -278,4 +286,14 @@ end
 
 function is_building_key(object_type, position)
   return object_type.." {x="..position.x..", y="..position.y.."}" -- Since position could be either Position object or map
+end
+
+function add_queue(object_type, position)
+  local key = is_building_key(object_type, position)
+  global.build_queue[key] = { type=object_type, position=position }
+end
+
+function remove_from_queue(object_type, position)
+  local key = is_building_key(object_type, position)
+  global.build_queue[key] = nil
 end
