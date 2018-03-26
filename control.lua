@@ -1,4 +1,5 @@
 require "util"  -- I don't know what it does
+require "math"
 
 -- 
 
@@ -16,30 +17,38 @@ NUMBER_OF_ENTITIES_IN_BLUEPRINT = 6
 --
 
 script.on_event(defines.events.on_tick, function(event)
-  if game.tick % 60 == 0 then
-    for _, player in pairs(game.players) do
-      blind_factory_builder(player)
-    end
+  for _, player in pairs(game.players) do
+    blind_factory_builder(player)
   end
 end)
 
 -- Functions
 
 function blind_factory_builder(player)
-  if OFF then return end
+  if OFF then 
+    return 
+  end
+
+  if game.tick % 60 ~= 0 then
+    return
+  end
 
   initialize(player)
 
   --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
   
   build_missing_object(player)
-  check_missing_resources(player)
 
   if CONSTRUCT_ROBOTS then
     CONSTRUCT_ROBOTS = false
     construct_from_blueprint(player, "construction-robot", {x=0, y=0})
     construct_from_blueprint(player, "logistic-robot", {x=0, y=0})
     construct_from_blueprint(player, "repair-pack", {x=0, y=0})
+  end
+
+  --if game.tick % 3600 == 0 then
+  if game.tick % 600 == 0 then
+    check_missing_resources(player)
   end
 
   --test(player)
@@ -174,10 +183,9 @@ function test(player)
 end
 
 function get_logistic_system_storage(player, logistic_network)
-  local storages = logistic_network.storages
   local contents = {}
 
-  for _, storage in pairs(storages) do
+  for _, storage in pairs(logistic_network.storages) do
     --log_to(player, storage.get_output_inventory().get_contents())
 
     for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
@@ -185,7 +193,29 @@ function get_logistic_system_storage(player, logistic_network)
     end
   end
 
+  for _, provider in pairs(logistic_network.providers) do
+    for name, amount in pairs(provider.get_output_inventory().get_contents()) do 
+      contents[name] = amount + (contents[name] or 0)
+    end
+  end
+
   return contents
+end
+
+function get_logistic_system_total_request(player, logistic_network)
+  local storage_contents = get_logistic_system_storage(player, logistic_network)
+
+  for _, requester in pairs(logistic_network.requesters) do
+    for i, _ in pairs({[1]=1, [2]=2, [3]=3, [4]=4, [5]=5}) do -- ingredientsは5つまで
+      local slot = requester.get_request_slot(i)
+      if slot == nil then 
+        break 
+      end
+      storage_contents[slot.name] = (storage_contents[slot.name] or 0) - slot.count
+    end
+  end
+
+  return storage_contents
 end
 
 function get_init_blueprints(player)
@@ -302,7 +332,9 @@ function construct_from_blueprint(player, object_type, position)
   --log_to(player, logistic_system_storage)
 
   for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
-    requester_chest.set_request_slot({name=ingredient.name, count=ingredient.amount * 2}, i)
+    local ingredient_amount = math.min(ingredient.amount * 10, 100)
+    
+    requester_chest.set_request_slot({name=ingredient.name, count=ingredient_amount}, i)
 
     if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
       log_to(player, "lack of "..ingredient.name)
@@ -321,7 +353,33 @@ end
 
 --
 function check_missing_resources(player)
-  -- TODO:
+  local seed_position = global.logistic_networks[1]
+  local logistic_network = player.surface.find_logistic_network_by_position(seed_position, player.force)
+  local request = get_logistic_system_total_request(player, logistic_network)
+
+  log_to(player, "check_missing_resources")
+  --log_to(player, request)
+
+  local least_resource_name = nil
+  local least_resource_amount = 0
+
+  for name, amount in pairs(request) do
+    if amount <= 1 then
+      --log_to(player, "lack of "..name.." ("..tostring(amount)..")")
+      
+      if amount < least_resource_amount then
+        least_resource_amount = amount
+        least_resource_name = name
+      end
+    end
+  end
+
+  if least_resource_name ~= nil then
+    log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
+
+    remove_now_building(least_resource_name, {x=0, y=0})
+    construct_from_blueprint(player, least_resource_name, {x=0, y=0})
+  end
 end
 
 -- Utility
@@ -330,6 +388,11 @@ function add_now_building(object_type, position)
   local key = is_building_key(object_type, position)
   global.now_building[key] = true
   -- No way to remove any key from now_building
+end
+
+function remove_now_building(object_type, position) -- keyにpositionが使われると動かなくなる
+  local key = is_building_key(object_type, position)
+  global.now_building[key] = nil
 end
 
 function is_building(object_type, position)
