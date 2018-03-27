@@ -353,8 +353,7 @@ end
 
 --
 function check_missing_resources(player)
-  local seed_position = global.logistic_networks[1]
-  local logistic_network = player.surface.find_logistic_network_by_position(seed_position, player.force)
+  local logistic_network = seed_logistic_network(player)
   local request = get_logistic_system_total_request(player, logistic_network)
 
   log_to(player, "check_missing_resources")
@@ -379,6 +378,15 @@ function check_missing_resources(player)
 
     remove_now_building(least_resource_name, {x=0, y=0})
     construct_from_blueprint(player, least_resource_name, {x=0, y=0})
+  end
+
+  for _, storage in pairs(logistic_network.storages) do
+    storageがstorageか調べる
+    storageなら足りない資源を補充
+
+    for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
+      contents[name] = amount + (contents[name] or 0)
+    end
   end
 end
 
@@ -413,4 +421,11 @@ end
 function remove_from_queue(object_type, position)
   local key = is_building_key(object_type, position)
   global.build_queue[key] = nil
+end
+
+---
+
+function seed_logistic_network(player)
+  local seed_position = global.logistic_networks[1]
+  return player.surface.find_logistic_network_by_position(seed_position, player.force)
 end
