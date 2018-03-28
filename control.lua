@@ -15,7 +15,27 @@ CONSTRUCT_ROBOTS = false
 NUMBER_OF_ENTITIES_IN_BLUEPRINT = 6
 
 -- 本Modで作成できない資源
-raw_resources = { ["iron-plate"]=true } 
+raw_resources = { 
+  ["iron-plate"]=true, 
+  ["copper-plate"]=true,
+  ["steel-plate"]=true,
+  ["plastic-bar"]=true, 
+  ["battery"]=true,
+  ["concrete"]=true,
+  ["stone-brick"]=true,
+  ["electric-engine-unit"]=true,
+  ["processing-unit"]=true,
+  ["raw-wood"]=true
+} 
+
+intermediate_products = {
+  ["copper-cable"]=true,
+  ["iron-stick"]=true,
+  ["iron-gear-wheel"]=true,
+  ["electronic-circuit"]=true,
+  ["advanced-circuit"]=true,
+  ["engine-unit"]=true,
+}
 
 --
 
@@ -32,7 +52,7 @@ function blind_factory_builder(player)
     return 
   end
 
-  if game.tick % 60 ~= 0 then
+  if game.tick % 240 ~= 0 then
     return
   end
 
@@ -44,9 +64,11 @@ function blind_factory_builder(player)
 
   if CONSTRUCT_ROBOTS then
     CONSTRUCT_ROBOTS = false
-    construct_from_blueprint(player, "construction-robot", {x=0, y=0})
-    construct_from_blueprint(player, "logistic-robot", {x=0, y=0})
-    construct_from_blueprint(player, "repair-pack", {x=0, y=0})
+    local initial_position = seed_position()
+
+    construct_from_blueprint(player, "construction-robot", initial_position)
+    construct_from_blueprint(player, "logistic-robot", initial_position)
+    construct_from_blueprint(player, "repair-pack", initial_position)
   end
 
   --if game.tick % 3600 == 0 then
@@ -83,6 +105,7 @@ function initialize(player)
       log_to(player, "RESET VARIABLES")
       global.now_building = nil
       global.build_queue = nil
+      global.has_assembler = nil
     end
   end
     
@@ -101,6 +124,10 @@ function initialize(player)
 
   if global.build_queue == nil then 
     global.build_queue = {}
+  end
+
+  if global.has_assembler == nil then
+    global.has_assembler = {}
   end
 
   if global.logistic_networks == nil then
@@ -261,8 +288,10 @@ function build_missing_object(player)
 
   for _, alert in pairs(missing_construction_object_alerts) do
     local missing_object_type = alert.target.ghost_name
+    --log_to(player, "Missing "..missing_object_type)
 
-    construct_from_blueprint(player, missing_object_type, alert.position)
+    local initial_position = seed_position()
+    construct_from_blueprint(player, missing_object_type, initial_position)
   end
 end
 
@@ -276,6 +305,7 @@ end
 function construct_from_blueprint(player, object_type, position) 
   if raw_resources[object_type] then
     log_to(player, "Cannot construct "..object_type)
+    remove_from_queue(object_type, position)
     return
   end
 
@@ -285,9 +315,8 @@ function construct_from_blueprint(player, object_type, position)
   end
 
   local surface = player.surface
-  local initial_position = global.logistic_networks[1]
 
-  local construct_position = surface.find_non_colliding_position("oil-refinery", initial_position, 100, 2)  -- to find large area
+  local construct_position = surface.find_non_colliding_position("oil-refinery", position, 100, 2)  -- to find large area
   if construct_position == nil then
     log_to(player, "No place for construction")
     return
@@ -309,7 +338,7 @@ function construct_from_blueprint(player, object_type, position)
       ghost.destroy()
     end
 
-    local next_position = {x=position.x + 5, y=position.y}
+    local next_position = {x=position.x + 10, y=position.y + 10}
     add_queue(object_type, next_position)  
     -- ここで呼ばなくても、is_buildingフラグが立っていないので、建設され次第collisionしない位置で建築されるが、それだとpositionが更新されない
     return
@@ -339,7 +368,7 @@ function construct_from_blueprint(player, object_type, position)
 
   if logistic_network == nil then
     log_to(player, "No logistic network")
-    --return
+    return
   end
 
   local logistic_system_storage = get_logistic_system_storage(player, logistic_network)
@@ -354,12 +383,13 @@ function construct_from_blueprint(player, object_type, position)
       log_to(player, "lack of "..ingredient.name)
       add_queue(ingredient.name, {x=position.x + 3, y=position.y})
     else 
-      log_to(player, "enough amount of "..ingredient.name)
+      --log_to(player, "enough amount of "..ingredient.name)
     end
   end
 
   add_now_building(object_type, position)
   remove_from_queue(object_type, position)
+  global.has_assembler[object_type] = true
 end
 
 --
@@ -367,18 +397,26 @@ function check_missing_resources(player)
   local logistic_network = seed_logistic_network(player)
   local request = get_logistic_system_total_request(player, logistic_network)
 
-  log_to(player, "check_missing_resources")
+  --log_to(player, "check_missing_resources")
 
   local least_resource_name = nil
   local least_resource_amount = 0
 
   local missing_raw_resources = {}
-  local missing_resource_unit = 500
+  local missing_resource_unit = 1000
 
   for name, amount in pairs(request) do
+    --log_to(player, name.." "..tostring(amount))
     if amount <= 1 then
       --log_to(player, "lack of "..name.." ("..tostring(amount)..")")
       
+      if (global.has_assembler[name] == nil) and (intermediate_products[name] == nil) then
+        local initial_position = seed_position()
+
+        remove_now_building(name, initial_position)
+        construct_from_blueprint(player, name, initial_position)
+      end
+
       if amount < least_resource_amount then
         least_resource_amount = amount
         least_resource_name = name
@@ -393,14 +431,17 @@ function check_missing_resources(player)
 
   if least_resource_name ~= nil then
     --log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
+    local initial_position = seed_position()
 
-    remove_now_building(least_resource_name, {x=0, y=0})
-    construct_from_blueprint(player, least_resource_name, {x=0, y=0})
+    remove_now_building(least_resource_name, initial_position)
+    construct_from_blueprint(player, least_resource_name, initial_position)
   end
 
   for _, storage in pairs(logistic_network.storages) do
     if storage.name == "logistic-chest-storage" then
       for name, amount in pairs(missing_raw_resources) do
+        log_to(player, "Autofill "..name)
+
         local item = { name=name, count=missing_resource_unit }
         local item_count = missing_resource_unit - amount
         local inventory = storage.get_output_inventory()
@@ -414,9 +455,12 @@ function check_missing_resources(player)
           item_count = item_count - missing_resource_unit
         end
 
+        missing_raw_resources[name] = missing_resource_unit - item_count
+
         if item_count <= 0 then
           missing_raw_resources[name] = nil
         end
+        break
       end
     end
   end
@@ -432,6 +476,11 @@ end
 
 function remove_now_building(object_type, position) -- keyにpositionが使われると動かなくなる
   local key = is_building_key(object_type, position)
+
+  if global.now_building[key] == nil then
+    return
+  end
+
   global.now_building[key] = nil
 end
 
@@ -457,7 +506,10 @@ end
 
 ---
 
+function seed_position() 
+  return {x=global.logistic_networks[1].x, y=global.logistic_networks[1].y} -- to copy
+end
+
 function seed_logistic_network(player)
-  local seed_position = global.logistic_networks[1]
-  return player.surface.find_logistic_network_by_position(seed_position, player.force)
+  return player.surface.find_logistic_network_by_position(seed_position(), player.force)
 end
