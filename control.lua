@@ -1,41 +1,9 @@
 require "util"  -- I don't know what it does
 require "math"
 
--- 
-
-OFF = false
-DEBUG = true
-RESET_ALL = false
-RESET_BLUEPRINTS = false
-RESET_LOGISTIC_NETWORK = false
-RESET = false
-
-CONSTRUCT_ROBOTS = false
-
-NUMBER_OF_ENTITIES_IN_BLUEPRINT = 6
-
--- 本Modで作成できない資源
-raw_resources = { 
-  ["iron-plate"]=true, 
-  ["copper-plate"]=true,
-  ["steel-plate"]=true,
-  ["plastic-bar"]=true, 
-  ["battery"]=true,
-  ["concrete"]=true,
-  ["stone-brick"]=true,
-  ["electric-engine-unit"]=true,
-  ["processing-unit"]=true,
-  ["raw-wood"]=true
-} 
-
-intermediate_products = {
-  ["copper-cable"]=true,
-  ["iron-stick"]=true,
-  ["iron-gear-wheel"]=true,
-  ["electronic-circuit"]=true,
-  ["advanced-circuit"]=true,
-  ["engine-unit"]=true,
-}
+require "initializer"
+require "utility"
+require "logistic_network"
 
 --
 
@@ -57,8 +25,6 @@ function blind_factory_builder(player)
   end
 
   initialize(player)
-
-  --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
   
   local logistic_network = seed_logistic_network(player)
   global.logistic_system_storage = _get_logistic_system_storage(player, logistic_network)
@@ -66,203 +32,9 @@ function blind_factory_builder(player)
 
   build_missing_object(player)
 
-  if CONSTRUCT_ROBOTS then
-    CONSTRUCT_ROBOTS = false
-    local initial_position = seed_position()
-
-    construct_from_blueprint(player, "construction-robot", initial_position)
-    construct_from_blueprint(player, "logistic-robot", initial_position)
-    construct_from_blueprint(player, "repair-pack", initial_position)
-  end
-
-  --if game.tick % 3600 == 0 then
   if game.tick % 600 == 0 then
     check_missing_resources(player)
   end
-
-  --test(player)
-end
-
-function initialize(player) 
-  if DEBUG then
-    if RESET_ALL then
-      RESET_ALL = false
-      log_to(player, "RESET ALL")
-      global.blueprints = nil
-      global.now_building = {}
-    end
-    
-    if RESET_BLUEPRINTS then
-      RESET_BLUEPRINTS = false
-      log_to(player, "RESET BLUEPRINTs")
-      global.blueprints = nil
-    end
-    
-    if RESET_LOGISTIC_NETWORK then
-      RESET_LOGISTIC_NETWORK = false
-      log_to(player, "RESET LOGISTIC NETWORK")
-      global.logistic_networks = nil
-    end
-
-    if RESET then
-      RESET = false
-      log_to(player, "RESET VARIABLES")
-      global.now_building = nil
-      global.build_queue = nil
-      global.has_assembler = nil
-    end
-  end
-    
-  if global.blueprints == nil then
-    local blueprints = get_init_blueprints(player)
-    if blueprints == nil then 
-      log_to(player, "No blueprint set")
-    else 
-      global.blueprints = blueprints
-    end      
-  end
-
-  if global.now_building == nil then
-    global.now_building = {}
-  end
-
-  if global.build_queue == nil then 
-    global.build_queue = {}
-  end
-
-  if global.has_assembler == nil then
-    global.has_assembler = {}
-  end
-
-  if global.logistic_networks == nil then
-    local position = selected_logistic_network_position(player)
-    if position == nil then
-      log_to(player, "No logistic network set")
-    else
-      log_to(player, "Logistic network set")
-      global.logistic_networks = {}
-      global.logistic_networks[1] = position  
-    end
-  end
-end
-
-function selected_logistic_network_position(player)
-  if player.selected == nil then
-    return nil
-  end
-
-  local logistic_network = player.selected.logistic_network
-  if logistic_network == nil then
-    --log_to(player, "no logistic_network")
-    return nil
-  end
-
-  return player.selected.position
-end
-
-function selected_logistic_network(player)
-  if player.selected == nil then
-    return nil
-  end
-
-  local logistic_network = player.selected.logistic_network
-  if logistic_network == nil then
-    --log_to(player, "no logistic_network")
-    return nil
-  end
-
-  return logistic_network
-end
-
-function logistic_network_covered(player, entity)
-  if entity == nil then
-    return nil
-  end
-
-  local surface = entity.surface
-  if surface == nil then
-    return nil
-  end
-
-  return surface.find_logistic_network_by_position(entity.position, entity.force)
-end
-
-function test(player)
-  local logistic_network = logistic_network_covered(player, player.selected)
-
-  if logistic_network == nil then
-    log_to(player, "no logistic_network")
-    return
-  end
-
-  local storages = logistic_network.storages
-  log_to(player, storages)
-
-  local storage_points = logistic_network.storage_points
-  --log_to(player, storage_points)
-
-  local contents = {}
-
-  for _, storage in pairs(storages) do
-    --log_to(player, storage.get_output_inventory().get_contents())
-
-    for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
-      contents[name] = amount + (contents[name] or 0)
-    end
-  end
-
-  log_to(player, "contents: ")
-  log_to(player, contents)
-  
-end
-
-function get_logistic_system_storage(player)
-  return global.logistic_system_storage
-end
-
-function get_logistic_system_total_request(player)
-  return global.logistic_system_total_request
-end
-
-function _get_logistic_system_storage(player, logistic_network)
-  local contents = {}
-
-  for _, storage in pairs(logistic_network.storages) do
-    --log_to(player, storage.get_output_inventory().get_contents())
-
-    for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
-      contents[name] = amount + (contents[name] or 0)
-    end
-  end
-
-  for _, provider in pairs(logistic_network.providers) do
-    local inventory = provider.get_output_inventory()
-    if inventory ~= nil then
-      for name, amount in pairs(inventory.get_contents()) do 
-        contents[name] = amount + (contents[name] or 0)
-      end
-    else 
-      log_to(player, "[ERROR] get_output_inventory() returns nil ("..provider.type..")")
-    end
-  end
-
-  return contents
-end
-
-function _get_logistic_system_total_request(player, logistic_network)
-  local storage_contents = get_logistic_system_storage(player, logistic_network)
-
-  for _, requester in pairs(logistic_network.requesters) do
-    for i, _ in pairs({[1]=1, [2]=2, [3]=3, [4]=4, [5]=5}) do -- ingredientsは5つまで
-      local slot = requester.get_request_slot(i)
-      if slot == nil then 
-        break 
-      end
-      storage_contents[slot.name] = (storage_contents[slot.name] or 0) - slot.count
-    end
-  end
-
-  return storage_contents
 end
 
 function get_init_blueprints(player)
@@ -309,15 +81,12 @@ function build_missing_object(player)
   end
 end
 
-function log_to(player, message)
-  if DEBUG then
-    player.print(serpent.block(message))
 
-  end
-end
+--#### construct_from_blueprint ####--
+
 
 function construct_from_blueprint(player, object_type, position) 
-  if raw_resources[object_type] then
+  if raw_resources[object_type] or uncraftable_recipes[object_type] then
     log_to(player, "Cannot construct "..object_type)
     remove_from_queue(object_type, position)
     return
@@ -335,9 +104,6 @@ function construct_from_blueprint(player, object_type, position)
     log_to(player, "No place for construction")
     return
   end
-
-  -- surfaceからlogistic_networkを求める
-  -- http://lua-api.factorio.com/0.15.40/LuaLogisticNetwork.html#LuaLogisticNetwork.find_cell_closest_to
 
   local blueprint = global.blueprints[2]
   local result = blueprint.build_blueprint{surface=surface, force=player.force, position=construct_position, force_build=true, direction=defines.direction.north}
@@ -371,8 +137,6 @@ function construct_from_blueprint(player, object_type, position)
     entities[entity.ghost_name] = entity
   end
 
-  --log_to(player, result)
-
   local assembler = entities["assembling-machine-3"]
   assembler.recipe = object_type
 
@@ -386,7 +150,6 @@ function construct_from_blueprint(player, object_type, position)
   end
 
   local logistic_system_storage = get_logistic_system_storage(player)
-  --log_to(player, logistic_system_storage)
 
   for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
     local ingredient_amount = math.min(ingredient.amount * 10, 100)
@@ -406,7 +169,10 @@ function construct_from_blueprint(player, object_type, position)
   global.has_assembler[object_type] = true
 end
 
---
+
+--#### check_missing_resources ####--
+
+
 function check_missing_resources(player)
   local request = get_logistic_system_total_request(player)
 
@@ -416,7 +182,7 @@ function check_missing_resources(player)
   local least_resource_amount = 0
 
   local missing_raw_resources = {}
-  local missing_resource_unit = 1000
+  local missing_resource_unit = 2000
 
   for name, amount in pairs(request) do
     --log_to(player, name.." "..tostring(amount))
@@ -436,7 +202,7 @@ function check_missing_resources(player)
       end
     end
 
-    if raw_resources[name] and amount < missing_resource_unit then
+    if raw_resources[name] and amount < (missing_resource_unit / 2) then
       --log_to(player, "MISSING "..name)
       missing_raw_resources[name] = amount
     end
@@ -481,50 +247,4 @@ function check_missing_resources(player)
   end
 end
 
--- Utility
-
-function add_now_building(object_type, position)
-  local key = is_building_key(object_type, position)
-  global.now_building[key] = true
-  -- No way to remove any key from now_building
-end
-
-function remove_now_building(object_type, position) -- keyにpositionが使われると動かなくなる
-  local key = is_building_key(object_type, position)
-
-  if global.now_building[key] == nil then
-    return
-  end
-
-  global.now_building[key] = nil
-end
-
-function is_building(object_type, position)
-  local key = is_building_key(object_type, position)
-  return global.now_building[key] ~= nil
-end
-
-function is_building_key(object_type, position)
-  --return object_type.." {x="..position.x..", y="..position.y.."}" -- Since position could be either Position object or map
-  return object_type
-end
-
-function add_queue(object_type, position)
-  local key = is_building_key(object_type, position)
-  global.build_queue[key] = { type=object_type, position=position }
-end
-
-function remove_from_queue(object_type, position)
-  local key = is_building_key(object_type, position)
-  global.build_queue[key] = nil
-end
-
 ---
-
-function seed_position() 
-  return {x=global.logistic_networks[1].x, y=global.logistic_networks[1].y} -- to copy
-end
-
-function seed_logistic_network(player)
-  return player.surface.find_logistic_network_by_position(seed_position(), player.force)
-end
