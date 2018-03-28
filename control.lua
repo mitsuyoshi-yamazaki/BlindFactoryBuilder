@@ -60,6 +60,10 @@ function blind_factory_builder(player)
 
   --global.blueprints.build_blueprint{surface=player.surface, force=player.force, position={x=0, y=0}}
   
+  local logistic_network = seed_logistic_network(player)
+  global.logistic_system_storage = _get_logistic_system_storage(player, logistic_network)
+  global.logistic_system_total_request = _get_logistic_system_total_request(player, logistic_network)
+
   build_missing_object(player)
 
   if CONSTRUCT_ROBOTS then
@@ -212,7 +216,15 @@ function test(player)
   
 end
 
-function get_logistic_system_storage(player, logistic_network)
+function get_logistic_system_storage(player)
+  return global.logistic_system_storage
+end
+
+function get_logistic_system_total_request(player)
+  return global.logistic_system_total_request
+end
+
+function _get_logistic_system_storage(player, logistic_network)
   local contents = {}
 
   for _, storage in pairs(logistic_network.storages) do
@@ -237,7 +249,7 @@ function get_logistic_system_storage(player, logistic_network)
   return contents
 end
 
-function get_logistic_system_total_request(player, logistic_network)
+function _get_logistic_system_total_request(player, logistic_network)
   local storage_contents = get_logistic_system_storage(player, logistic_network)
 
   for _, requester in pairs(logistic_network.requesters) do
@@ -290,6 +302,8 @@ function build_missing_object(player)
     local missing_object_type = alert.target.ghost_name
     --log_to(player, "Missing "..missing_object_type)
 
+    global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
+
     local initial_position = seed_position()
     construct_from_blueprint(player, missing_object_type, initial_position)
   end
@@ -316,7 +330,7 @@ function construct_from_blueprint(player, object_type, position)
 
   local surface = player.surface
 
-  local construct_position = surface.find_non_colliding_position("oil-refinery", position, 100, 2)  -- to find large area
+  local construct_position = surface.find_non_colliding_position("rocket-silo", position, 100, 2)  -- to find large area "rocket-silo" "oil-refinery"
   if construct_position == nil then
     log_to(player, "No place for construction")
     return
@@ -371,7 +385,7 @@ function construct_from_blueprint(player, object_type, position)
     return
   end
 
-  local logistic_system_storage = get_logistic_system_storage(player, logistic_network)
+  local logistic_system_storage = get_logistic_system_storage(player)
   --log_to(player, logistic_system_storage)
 
   for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
@@ -394,8 +408,7 @@ end
 
 --
 function check_missing_resources(player)
-  local logistic_network = seed_logistic_network(player)
-  local request = get_logistic_system_total_request(player, logistic_network)
+  local request = get_logistic_system_total_request(player)
 
   --log_to(player, "check_missing_resources")
 
@@ -436,6 +449,8 @@ function check_missing_resources(player)
     remove_now_building(least_resource_name, initial_position)
     construct_from_blueprint(player, least_resource_name, initial_position)
   end
+
+  local logistic_network = seed_logistic_network(player)
 
   for _, storage in pairs(logistic_network.storages) do
     if storage.name == "logistic-chest-storage" then
