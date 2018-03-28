@@ -24,7 +24,13 @@ function blind_factory_builder(player)
     return
   end
 
-  initialize(player)
+  if initialize(player) ~= true then
+    return
+  end
+
+  if INITIALIZATION_ONLY then
+    return
+  end
   
   local logistic_network = seed_logistic_network(player)
   global.logistic_system_storage = _get_logistic_system_storage(player, logistic_network)
@@ -62,6 +68,9 @@ function build_missing_object(player)
   local missing_construction_object_alerts = player.get_alerts{}[0][3]
 
   if next(missing_construction_object_alerts) == nil then
+    local roboport_position = next_roboport_position(player)
+    construct_roboport(player, roboport_position)
+
     return
   end
 
@@ -70,14 +79,25 @@ function build_missing_object(player)
     construct_from_blueprint(player, value.type, value.position)
   end
 
+  local missing_roboports = 0
+  local initial_position = seed_position()
+
   for _, alert in pairs(missing_construction_object_alerts) do
     local missing_object_type = alert.target.ghost_name
     --log_to(player, "Missing "..missing_object_type)
 
+    if missing_object_type == "roboport" then
+      missing_roboports = missing_roboports + 1
+    end
+
     global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
 
-    local initial_position = seed_position()
     construct_from_blueprint(player, missing_object_type, initial_position)
+  end
+
+  if missing_roboports == 0 then
+    local roboport_position = next_roboport_position(player)
+    construct_roboport(player, roboport_position)
   end
 end
 
@@ -170,6 +190,15 @@ function construct_from_blueprint(player, object_type, position)
 end
 
 
+function construct_roboport(player, position)
+
+  local surface = player.surface
+  local blueprint = global.blueprints[3]
+  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+
+
+end
+
 --#### check_missing_resources ####--
 
 
@@ -202,7 +231,7 @@ function check_missing_resources(player)
       end
     end
 
-    if raw_resources[name] and amount < (missing_resource_unit / 2) then
+    if raw_resources[name] and amount < missing_resource_unit then
       --log_to(player, "MISSING "..name)
       missing_raw_resources[name] = amount
     end
@@ -217,13 +246,14 @@ function check_missing_resources(player)
   end
 
   local logistic_network = seed_logistic_network(player)
+  local fill_unit = 100
 
   for _, storage in pairs(logistic_network.storages) do
     if storage.name == "logistic-chest-storage" then
       for name, amount in pairs(missing_raw_resources) do
-        log_to(player, "Autofill "..name)
+        --log_to(player, "Autofill "..name)
 
-        local item = { name=name, count=missing_resource_unit }
+        local item = { name=name, count=fill_unit }
         local item_count = missing_resource_unit - amount
         local inventory = storage.get_output_inventory()
 
@@ -233,7 +263,7 @@ function check_missing_resources(player)
           end
 
           inventory.insert(item)
-          item_count = item_count - missing_resource_unit
+          item_count = item_count - fill_unit
         end
 
         missing_raw_resources[name] = missing_resource_unit - item_count
@@ -247,4 +277,43 @@ function check_missing_resources(player)
   end
 end
 
----
+
+--## next_roboport_position ##--
+
+
+function next_roboport_position(player) 
+  if global.next_roboport["position"] == nil then
+    global.next_roboport["position"] = seed_position(player)  -- これは「前回読み込まれた時の」位置
+    global.next_roboport["direction_index"] = 0 -- これは「次回に読み込まれた時の」index
+  end
+
+  local rotation = {[0]={x=1, y=0}, [1]={x=0, y=1}, [2]={x=-1, y=0}, [3]={x=0, y=-1}}
+
+  local current_index = global.next_roboport["direction_index"]
+  local current_direction = rotation[current_index]
+  local previous_position = global.next_roboport["position"]
+
+  local roboport_interval = 50
+  local x = previous_position.x + (current_direction.x * roboport_interval)
+  local y = previous_position.y + (current_direction.y * roboport_interval)
+  local position = {x=x, y=y}
+
+  if can_roboport_built_on(player, position) then
+  else 
+    current_index = (current_index - 1 + 4) % 4
+    current_direction = rotation[current_index]
+    x = previous_position.x + (current_direction.x * roboport_interval)
+    y = previous_position.y + (current_direction.y * roboport_interval)
+    position = {x=x, y=y}
+  
+    -- 「ロボポートがなければ建てる」なので、立地的に建てられるかどうかは考慮しない
+  end
+
+  global.next_roboport["position"] = position
+  global.next_roboport["direction_index"] = (current_index + 1) % 4
+  return position
+end
+
+function can_roboport_built_on(player, position)
+  return player.surface.find_entity("roboport", position) == nil
+end

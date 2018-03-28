@@ -2,6 +2,7 @@ require "util"  -- I don't know what it does
 require "logistic_network"
 
 OFF = false
+INITIALIZATION_ONLY = false
 DEBUG = true
 RESET_ALL = false
 RESET_BLUEPRINTS = false
@@ -40,6 +41,8 @@ uncraftable_recipes = {
 --
 
 function initialize(player) 
+    local initialization_succeeded = true
+
     if DEBUG then
       if RESET_ALL then
         RESET_ALL = false
@@ -66,6 +69,7 @@ function initialize(player)
         global.now_building = nil
         global.build_queue = nil
         global.has_assembler = nil
+        global.next_roboport = nil
       end
     end
       
@@ -73,6 +77,7 @@ function initialize(player)
       local blueprints = get_init_blueprints(player)
       if blueprints == nil then 
         log_to(player, "No blueprint set")
+        initialization_succeeded = false
       else 
         global.blueprints = blueprints
       end      
@@ -89,6 +94,10 @@ function initialize(player)
     if global.has_assembler == nil then
       global.has_assembler = {}
     end
+
+    if global.next_roboport == nil then
+      global.next_roboport = {}
+    end
   
     if global.logistic_networks == nil then
       local position = selected_logistic_network_position(player)
@@ -100,5 +109,7 @@ function initialize(player)
         global.logistic_networks[1] = position  
       end
     end
+
+    return initialization_succeeded
 end
   
