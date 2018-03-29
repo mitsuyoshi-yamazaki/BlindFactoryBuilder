@@ -65,7 +65,12 @@ function get_init_blueprints(player)
 end
 
 function build_missing_object(player)
-  local missing_construction_object_alerts = player.get_alerts{}[0][3]
+  local alerts = player.get_alerts{}[0]
+  local missing_construction_object_alerts = alerts[defines.alert_type.no_material_for_construction]
+
+  for _, alert in pairs(alerts[defines.alert_type.entity_destroyed]) do
+    construct_turret(player, alert.position)
+  end
 
   if next(missing_construction_object_alerts) == nil then
     local roboport_position = next_roboport_position(player)
@@ -92,7 +97,9 @@ function build_missing_object(player)
 
     global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
 
-    construct_from_blueprint(player, missing_object_type, initial_position)
+    add_queue(missing_object_type, initial_position)
+
+    --construct_from_blueprint(player, missing_object_type, initial_position)
   end
 
   if missing_roboports == 0 then
@@ -105,7 +112,9 @@ end
 --#### construct_from_blueprint ####--
 
 
-function construct_from_blueprint(player, object_type, position) 
+function construct_from_blueprint(player, object_type, position, radius) 
+  radius = radius or 1000 --default valueを使うとtableを渡すことになるのでこちらで行なっている
+
   if raw_resources[object_type] or uncraftable_recipes[object_type] then
     log_to(player, "Cannot construct "..object_type)
     remove_from_queue(object_type, position)
@@ -113,13 +122,13 @@ function construct_from_blueprint(player, object_type, position)
   end
 
   if is_building(object_type, position) then
-    --log_to(player, is_building_key(object_type, position).." is now being built")
+    log_to(player, is_building_key(object_type, position).." is now being built")
     return
   end
 
   local surface = player.surface
 
-  local construct_position = surface.find_non_colliding_position("rocket-silo", position, 100, 2)  -- to find large area "rocket-silo" "oil-refinery"
+  local construct_position = surface.find_non_colliding_position("rocket-silo", position, radius, 2)  -- to find large area "rocket-silo" "oil-refinery"
   if construct_position == nil then
     log_to(player, "No place for construction")
     return
@@ -141,6 +150,8 @@ function construct_from_blueprint(player, object_type, position)
     local next_position = {x=position.x + 10, y=position.y + 10}
     add_queue(object_type, next_position)  
     -- ここで呼ばなくても、is_buildingフラグが立っていないので、建設され次第collisionしない位置で建築されるが、それだとpositionが更新されない
+
+    log_to(player, "add_queue: "..object_type..", ("..tostring(construct_position.x)..", "..tostring(construct_position.y)..")")
     return
   end
 
@@ -191,12 +202,15 @@ end
 
 
 function construct_roboport(player, position)
-
   local surface = player.surface
   local blueprint = global.blueprints[3]
   local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+end
 
-
+function construct_turret(player, position)
+  local surface = player.surface
+  local blueprint = global.blueprints[4]
+  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
 end
 
 --#### check_missing_resources ####--
@@ -208,14 +222,17 @@ function check_missing_resources(player)
   --log_to(player, "check_missing_resources")
 
   local least_resource_name = nil
-  local least_resource_amount = 0
+  local least_resource_amount = 50
+
+  local least_product_name = nil
+  local least_product_amount = 50
 
   local missing_raw_resources = {}
-  local missing_resource_unit = 2000
+  local missing_resource_unit = 4000
 
   for name, amount in pairs(request) do
     --log_to(player, name.." "..tostring(amount))
-    if amount <= 1 then
+    if amount <= 50 then
       --log_to(player, "lack of "..name.." ("..tostring(amount)..")")
       
       if (global.has_assembler[name] == nil) and (intermediate_products[name] == nil) then
@@ -225,9 +242,14 @@ function check_missing_resources(player)
         construct_from_blueprint(player, name, initial_position)
       end
 
-      if amount < least_resource_amount then
+      if (amount < least_resource_amount) and (intermediate_products[name] ~= nil) then
         least_resource_amount = amount
         least_resource_name = name
+      end
+
+      if (amount < least_product_amount) and (intermediate_products[name] == nil) then
+        least_product_amount = amount
+        least_product_name = name
       end
     end
 
@@ -238,11 +260,21 @@ function check_missing_resources(player)
   end
 
   if least_resource_name ~= nil then
-    --log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
+    log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
     local initial_position = seed_position()
 
     remove_now_building(least_resource_name, initial_position)
-    construct_from_blueprint(player, least_resource_name, initial_position)
+    add_queue(least_resource_name, initial_position)
+    --construct_from_blueprint(player, least_resource_name, initial_position)
+  end
+
+  if least_product_name ~= nil then
+    log_to(player, "lack of "..least_product_name.." ("..tostring(least_product_amount)..")")
+    local initial_position = seed_position()
+
+    remove_now_building(least_product_name, initial_position)
+    add_queue(least_product_name, initial_position)
+    --construct_from_blueprint(player, least_product_name, initial_position)
   end
 
   local logistic_network = seed_logistic_network(player)
@@ -251,7 +283,7 @@ function check_missing_resources(player)
   for _, storage in pairs(logistic_network.storages) do
     if storage.name == "logistic-chest-storage" then
       for name, amount in pairs(missing_raw_resources) do
-        --log_to(player, "Autofill "..name)
+        log_to(player, "Autofill "..name)
 
         local item = { name=name, count=fill_unit }
         local item_count = missing_resource_unit - amount

@@ -22,7 +22,9 @@ raw_resources = {
   ["stone-brick"]=true,
   ["electric-engine-unit"]=true,
   ["processing-unit"]=true,
-  ["raw-wood"]=true
+  ["raw-wood"]=true,
+  ["express-transport-belt"]=true,
+  ["express-underground-belt"]=true,
 } 
 
 intermediate_products = {
@@ -35,7 +37,7 @@ intermediate_products = {
 }
 
 uncraftable_recipes = {
-  ["straight-rail"]=true
+  ["straight-rail"]=true,
 }
 
 --

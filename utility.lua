@@ -5,7 +5,7 @@ require "math"
 
 function add_now_building(object_type, position)
     local key = is_building_key(object_type, position)
-    global.now_building[key] = true
+    global.now_building[key] = game.tick
     -- No way to remove any key from now_building
 end
   
@@ -21,7 +21,19 @@ end
   
 function is_building(object_type, position)
     local key = is_building_key(object_type, position)
-    return global.now_building[key] ~= nil
+    local build_started_at = global.now_building[key]
+
+    if build_started_at == nil then 
+        return false
+    end
+
+    local threshold = 60 * 15
+
+    if (game.tick - build_started_at) > threshold then
+        return false
+    end
+
+    return true
 end
   
 function is_building_key(object_type, position)
