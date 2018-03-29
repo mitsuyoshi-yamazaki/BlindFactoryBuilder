@@ -60,7 +60,6 @@ function get_init_blueprints(player)
     return
   end
 
-  log_to(player, "blueprints set")
   return inventory
 end
 
@@ -75,7 +74,6 @@ function build_missing_object(player)
   if next(missing_construction_object_alerts) == nil then
     local roboport_position = next_roboport_position(player)
     construct_roboport(player, roboport_position)
-
     return
   end
 
@@ -122,7 +120,7 @@ function construct_from_blueprint(player, object_type, position, radius)
   end
 
   if is_building(object_type, position) then
-    log_to(player, is_building_key(object_type, position).." is now being built")
+    --log_to(player, is_building_key(object_type, position).." is now being built")
     return
   end
 
@@ -151,7 +149,7 @@ function construct_from_blueprint(player, object_type, position, radius)
     add_queue(object_type, next_position)  
     -- ここで呼ばなくても、is_buildingフラグが立っていないので、建設され次第collisionしない位置で建築されるが、それだとpositionが更新されない
 
-    log_to(player, "add_queue: "..object_type..", ("..tostring(construct_position.x)..", "..tostring(construct_position.y)..")")
+    --log_to(player, "add_queue: "..object_type..", ("..tostring(construct_position.x)..", "..tostring(construct_position.y)..")")
     return
   end
 
@@ -188,8 +186,10 @@ function construct_from_blueprint(player, object_type, position, radius)
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient_amount}, i)
 
     if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
-      log_to(player, "lack of "..ingredient.name)
-      add_queue(ingredient.name, {x=position.x + 3, y=position.y})
+      --log_to(player, "lack of "..ingredient.name)
+
+      remove_now_building(ingredient.name, position)
+      construct_from_blueprint(player, ingredient.name, {x=position.x + 3, y=position.y})
     else 
       --log_to(player, "enough amount of "..ingredient.name)
     end
@@ -202,15 +202,34 @@ end
 
 
 function construct_roboport(player, position)
+  if DISABLE_ROBOPORT_AUTOCONSTRUCTION then
+    return
+  end
+
   local surface = player.surface
   local blueprint = global.blueprints[3]
   local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+
+  local area = {position, {position.x + 50, position.y + 50}}
+  local entities = surface.find_entities(area)
+
+  for _, entity in pairs(entities) do
+    if (entity.type == "tree") or (entity.name == "stone-rock") then
+      entity.order_deconstruction(player.force)
+    end
+  end
 end
 
 function construct_turret(player, position)
+  local turret_position = convert_to_turret_position(player, position)
+
+  if has_turret_on(player, turret_position) then
+    return
+  end
+
   local surface = player.surface
   local blueprint = global.blueprints[4]
-  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=position, force_build=true, direction=defines.direction.north}
+  local result = blueprint.build_blueprint{surface=surface, force=player.force, position=turret_position, force_build=true, direction=defines.direction.north}
 end
 
 --#### check_missing_resources ####--
@@ -260,7 +279,7 @@ function check_missing_resources(player)
   end
 
   if least_resource_name ~= nil then
-    log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
+    --log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
     local initial_position = seed_position()
 
     remove_now_building(least_resource_name, initial_position)
@@ -269,7 +288,7 @@ function check_missing_resources(player)
   end
 
   if least_product_name ~= nil then
-    log_to(player, "lack of "..least_product_name.." ("..tostring(least_product_amount)..")")
+    --log_to(player, "lack of "..least_product_name.." ("..tostring(least_product_amount)..")")
     local initial_position = seed_position()
 
     remove_now_building(least_product_name, initial_position)
@@ -283,7 +302,7 @@ function check_missing_resources(player)
   for _, storage in pairs(logistic_network.storages) do
     if storage.name == "logistic-chest-storage" then
       for name, amount in pairs(missing_raw_resources) do
-        log_to(player, "Autofill "..name)
+        --log_to(player, "Autofill "..name)
 
         local item = { name=name, count=fill_unit }
         local item_count = missing_resource_unit - amount
@@ -314,6 +333,10 @@ end
 
 
 function next_roboport_position(player) 
+  if DISABLE_ROBOPORT_AUTOCONSTRUCTION then
+    return {x=0, y=0}
+  end
+
   if global.next_roboport["position"] == nil then
     global.next_roboport["position"] = seed_position(player)  -- これは「前回読み込まれた時の」位置
     global.next_roboport["direction_index"] = 0 -- これは「次回に読み込まれた時の」index

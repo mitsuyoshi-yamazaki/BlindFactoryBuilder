@@ -57,4 +57,20 @@ function log_to(player, message)
   
     end
 end
+
+function turret_key(player, position)
+    return "("..tostring(position.x)..", "..tostring(position.y)..")"
+end
   
+function has_turret_on(player, position)
+    local key = turret_key(player, position)
+    return global.turret_locations[key] ~= nil
+end
+
+function convert_to_turret_position(player, position)
+    local initial_position = seed_position()
+
+    local x = (math.floor(position.x / 25) * 25) + 12 + (initial_position.x % 25)
+    local y = (math.floor(position.y / 25) * 25) + 13 + (initial_position.y % 25)
+    return {x=x, y=y}
+end

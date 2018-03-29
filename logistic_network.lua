@@ -67,6 +67,7 @@ function _get_logistic_system_storage(player, logistic_network)
         for name, amount in pairs(inventory.get_contents()) do 
           contents[name] = amount + (contents[name] or 0)
         end
+      elseif provider.type == "player" then
       else 
         log_to(player, "[ERROR] get_output_inventory() returns nil ("..provider.type..")")
       end
@@ -88,6 +89,10 @@ function _get_logistic_system_total_request(player, logistic_network)
       end
     end
   
+    for name, _ in pairs(not_requesting_resources) do
+      storage_contents[name] = nil
+    end
+
     return storage_contents
 end
   

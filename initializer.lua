@@ -3,7 +3,10 @@ require "logistic_network"
 
 OFF = false
 INITIALIZATION_ONLY = false
+DISABLE_ROBOPORT_AUTOCONSTRUCTION = false
+
 DEBUG = true
+
 RESET_ALL = false
 RESET_BLUEPRINTS = false
 RESET_LOGISTIC_NETWORK = false
@@ -25,6 +28,7 @@ raw_resources = {
   ["raw-wood"]=true,
   ["express-transport-belt"]=true,
   ["express-underground-belt"]=true,
+  ["uranium-fuel-cell"]=true,
 } 
 
 intermediate_products = {
@@ -38,6 +42,12 @@ intermediate_products = {
 
 uncraftable_recipes = {
   ["straight-rail"]=true,
+  ["stone"]=true,
+}
+
+not_requesting_resources = {
+  ["raw-wood"]=true,
+  ["stone"]=true,
 }
 
 --
@@ -45,42 +55,46 @@ uncraftable_recipes = {
 function initialize(player) 
     local initialization_succeeded = true
 
-    if DEBUG then
-      if RESET_ALL then
-        RESET_ALL = false
-        log_to(player, "RESET ALL")
-        global.blueprints = nil
-        global.now_building = {}
-      end
-      
-      if RESET_BLUEPRINTS then
+    if DEBUG then      
+      if RESET_BLUEPRINTS or RESET_ALL then
         RESET_BLUEPRINTS = false
         log_to(player, "RESET BLUEPRINTs")
         global.blueprints = nil
       end
       
-      if RESET_LOGISTIC_NETWORK then
+      if RESET_LOGISTIC_NETWORK or RESET_ALL then
         RESET_LOGISTIC_NETWORK = false
         log_to(player, "RESET LOGISTIC NETWORK")
         global.logistic_networks = nil
       end
   
-      if RESET then
+      if RESET or RESET_ALL then
         RESET = false
         log_to(player, "RESET VARIABLES")
         global.now_building = nil
         global.build_queue = nil
         global.has_assembler = nil
         global.next_roboport = nil
+        global.turret_locations = nil
+      end
+
+      if RESET_ALL then --ここで RESET_ALL = false しているので最後に呼ぶ必要がある
+        RESET_ALL = false
+        log_to(player, "RESET ALL")
+        global.blueprints = nil
+        global.now_building = {}
       end
     end
       
+    --global.now_building = nil
+
     if global.blueprints == nil then
       local blueprints = get_init_blueprints(player)
       if blueprints == nil then 
         log_to(player, "No blueprint set")
         initialization_succeeded = false
       else 
+        log_to(player, "blueprint set")
         global.blueprints = blueprints
       end      
     end
@@ -100,11 +114,16 @@ function initialize(player)
     if global.next_roboport == nil then
       global.next_roboport = {}
     end
+
+    if global.turret_locations == nil then
+      global.turret_locations = {}
+    end
   
     if global.logistic_networks == nil then
       local position = selected_logistic_network_position(player)
       if position == nil then
         log_to(player, "No logistic network set")
+        initialization_succeeded = false
       else
         log_to(player, "Logistic network set")
         global.logistic_networks = {}
