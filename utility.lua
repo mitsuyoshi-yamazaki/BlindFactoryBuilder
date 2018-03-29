@@ -27,6 +27,10 @@ function is_building(object_type, position)
         return false
     end
 
+    if true then
+        return true --FixMe:
+    end
+
     local threshold = 60 * 15
 
     if (game.tick - build_started_at) > threshold then

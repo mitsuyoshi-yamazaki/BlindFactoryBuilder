@@ -95,9 +95,9 @@ function build_missing_object(player)
 
     global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
 
-    add_queue(missing_object_type, initial_position)
+    --add_queue(missing_object_type, initial_position)
 
-    --construct_from_blueprint(player, missing_object_type, initial_position)
+    construct_from_blueprint(player, missing_object_type, initial_position)
   end
 
   if missing_roboports == 0 then
@@ -113,6 +113,13 @@ end
 function construct_from_blueprint(player, object_type, position, radius) 
   radius = radius or 1000 --default valueを使うとtableを渡すことになるのでこちらで行なっている
 
+  log_to(player, "construct_from_blueprint: "..object_type)
+
+  if global.disable_new_construction and (global.has_assembler[object_type] ~= nil) then
+    log_to(player, "New construction disabled")
+    return
+  end
+
   if raw_resources[object_type] or uncraftable_recipes[object_type] then
     log_to(player, "Cannot construct "..object_type)
     remove_from_queue(object_type, position)
@@ -120,7 +127,7 @@ function construct_from_blueprint(player, object_type, position, radius)
   end
 
   if is_building(object_type, position) then
-    --log_to(player, is_building_key(object_type, position).." is now being built")
+    log_to(player, is_building_key(object_type, position).." is now being built")
     return
   end
 
@@ -146,7 +153,7 @@ function construct_from_blueprint(player, object_type, position, radius)
     end
 
     local next_position = {x=position.x + 10, y=position.y + 10}
-    add_queue(object_type, next_position)  
+    -- add_queue(object_type, next_position)  --FixMe:
     -- ここで呼ばなくても、is_buildingフラグが立っていないので、建設され次第collisionしない位置で建築されるが、それだとpositionが更新されない
 
     --log_to(player, "add_queue: "..object_type..", ("..tostring(construct_position.x)..", "..tostring(construct_position.y)..")")
@@ -186,12 +193,13 @@ function construct_from_blueprint(player, object_type, position, radius)
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient_amount}, i)
 
     if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
-      --log_to(player, "lack of "..ingredient.name)
+      log_to(player, "lack of "..ingredient.name)
 
       remove_now_building(ingredient.name, position)
-      construct_from_blueprint(player, ingredient.name, {x=position.x + 3, y=position.y})
+      --construct_from_blueprint(player, ingredient.name, {x=position.x + 3, y=position.y})
+      add_queue(ingredient.name, position)
     else 
-      --log_to(player, "enough amount of "..ingredient.name)
+      log_to(player, "enough amount of "..ingredient.name)
     end
   end
 
@@ -236,15 +244,19 @@ end
 
 
 function check_missing_resources(player)
+  if true then
+  return --FixMe:
+  end
+
   local request = get_logistic_system_total_request(player)
 
   --log_to(player, "check_missing_resources")
 
   local least_resource_name = nil
-  local least_resource_amount = 50
+  local least_resource_amount = 0
 
   local least_product_name = nil
-  local least_product_amount = 50
+  local least_product_amount = 0
 
   local missing_raw_resources = {}
   local missing_resource_unit = 4000
@@ -282,8 +294,8 @@ function check_missing_resources(player)
     --log_to(player, "lack of "..least_resource_name.." ("..tostring(least_resource_amount)..")")
     local initial_position = seed_position()
 
-    remove_now_building(least_resource_name, initial_position)
-    add_queue(least_resource_name, initial_position)
+--    remove_now_building(least_resource_name, initial_position) --FixMe:
+--    add_queue(least_resource_name, initial_position)
     --construct_from_blueprint(player, least_resource_name, initial_position)
   end
 
@@ -291,8 +303,8 @@ function check_missing_resources(player)
     --log_to(player, "lack of "..least_product_name.." ("..tostring(least_product_amount)..")")
     local initial_position = seed_position()
 
-    remove_now_building(least_product_name, initial_position)
-    add_queue(least_product_name, initial_position)
+--    remove_now_building(least_product_name, initial_position) --FixMe:
+--    add_queue(least_product_name, initial_position)
     --construct_from_blueprint(player, least_product_name, initial_position)
   end
 
