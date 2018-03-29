@@ -3,9 +3,10 @@ require "logistic_network"
 
 OFF = false
 INITIALIZATION_ONLY = false
-DISABLE_ROBOPORT_AUTOCONSTRUCTION = false
+DISABLE_ROBOPORT_AUTOCONSTRUCTION = true
+DISABLE_NEW_CONSTRUCTION = false
 
-DEBUG = true
+DEBUG = false
 
 RESET_ALL = false
 RESET_BLUEPRINTS = false
@@ -76,6 +77,7 @@ function initialize(player)
         global.has_assembler = nil
         global.next_roboport = nil
         global.turret_locations = nil
+        global.disable_new_construction = nil
       end
 
       if RESET_ALL then --ここで RESET_ALL = false しているので最後に呼ぶ必要がある
@@ -129,6 +131,10 @@ function initialize(player)
         global.logistic_networks = {}
         global.logistic_networks[1] = position  
       end
+    end
+
+    if DISABLE_NEW_CONSTRUCTION then
+        global.disable_new_construction = true
     end
 
     return initialization_succeeded

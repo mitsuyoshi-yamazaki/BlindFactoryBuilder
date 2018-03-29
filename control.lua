@@ -113,6 +113,11 @@ end
 function construct_from_blueprint(player, object_type, position, radius) 
   radius = radius or 1000 --default valueを使うとtableを渡すことになるのでこちらで行なっている
 
+  if global.disable_new_construction and (global.has_assembler[object_type] ~= nil) then
+    log_to(player, "New construction disabled")
+    return
+  end
+
   if raw_resources[object_type] or uncraftable_recipes[object_type] then
     log_to(player, "Cannot construct "..object_type)
     remove_from_queue(object_type, position)
