@@ -47,7 +47,7 @@ uncraftable_recipes = {
 }
 
 not_requesting_resources = {
-  ["wood"]=true,
+  ["raw-wood"]=true,
   ["stone"]=true,
 }
 
