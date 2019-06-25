@@ -1,5 +1,5 @@
 require "util"  -- I don't know what it does
-require "math"
+require "math2d"
 
 -- Utility
 

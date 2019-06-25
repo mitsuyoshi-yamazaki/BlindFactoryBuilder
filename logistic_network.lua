@@ -1,5 +1,5 @@
 require "util"  -- I don't know what it does
-require "math"
+require "math2d"
 
 function selected_logistic_network_position(player)
     if player.selected == nil then
@@ -55,10 +55,12 @@ function _get_logistic_system_storage(player, logistic_network)
   
     for _, storage in pairs(logistic_network.storages) do
       --log_to(player, storage.get_output_inventory().get_contents())
-  
-      for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
-        contents[name] = amount + (contents[name] or 0)
-      end
+		
+						if storage.name ~= "logistic-chest-passive-provider" then
+		      for name, amount in pairs(storage.get_output_inventory().get_contents()) do 
+  		      contents[name] = amount + (contents[name] or 0)
+								end
+						end
     end
   
     for _, provider in pairs(logistic_network.providers) do

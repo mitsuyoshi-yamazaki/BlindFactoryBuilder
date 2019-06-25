@@ -184,7 +184,7 @@ function construct_from_blueprint(player, object_type, position, radius)
   end
 
   local assembler = entities["assembling-machine-3"]
-  assembler.set_recipe(object_type)
+		assembler.set_recipe(object_type)					
 
   local requester_chest = entities["logistic-chest-requester"]
   local logistic_network = logistic_network_covered(player, requester_chest)
@@ -197,13 +197,13 @@ function construct_from_blueprint(player, object_type, position, radius)
 
   local logistic_system_storage = get_logistic_system_storage(player)
 
-  for i, ingredient in pairs(assembler.get_recipe().ingredients) do  -- assembler.recipe is LuaRecipe, not String
+  for i, ingredient in pairs(assembler.get_recipe().ingredients) do  -- assembler.recipe is LuaRecipe, object_type is String
     local ingredient_amount = math.min(ingredient.amount * 10, 100)
     
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient_amount}, i)
 
     if (logistic_system_storage[ingredient.name] or 0) < ingredient.amount then
-      --log_to(player, "lack of "..ingredient.name)
+      --log_to(player, "lack of "..ingredient.name.."("..object_type..")")
 
       remove_now_building(ingredient.name, position)
       construct_from_blueprint(player, ingredient.name, {x=position.x + 3, y=position.y})
@@ -274,7 +274,7 @@ function check_missing_resources(player)
       if (global.has_assembler[name] == nil) and (intermediate_products[name] == nil) then
         local initial_position = seed_position()
 
-        remove_now_building(name, initial_position)
+								remove_now_building(name, initial_position)
         construct_from_blueprint(player, name, initial_position)
       end
 
