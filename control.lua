@@ -22,7 +22,7 @@ function blind_factory_builder(player)
 
   if game.tick % 240 ~= 0 then
     return
-  end
+		end
 
   if initialize(player) ~= true then
     return
