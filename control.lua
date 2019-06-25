@@ -1,5 +1,5 @@
 require "util"  -- I don't know what it does
-require "math"
+require "math2d"
 
 require "initializer"
 require "utility"
@@ -8,7 +8,7 @@ require "logistic_network"
 --
 
 script.on_event(defines.events.on_tick, function(event)
-  for _, player in pairs(game.players) do
+		for _, player in pairs(game.players) do
     blind_factory_builder(player)
   end
 end)
@@ -65,17 +65,27 @@ end
 
 function build_missing_object(player)
   local alerts = player.get_alerts{}[0]
-  local missing_construction_object_alerts = alerts[defines.alert_type.no_material_for_construction]
+		local missing_construction_object_alerts 
+		
+		if alerts == nil then
+				missing_construction_object_alerts = nil 
+		else
+				missing_construction_object_alerts = alerts[defines.alert_type.no_material_for_construction]
+		end
 
-  for _, alert in pairs(alerts[defines.alert_type.entity_destroyed]) do
-    construct_turret(player, alert.position)
-  end
+		if alerts ~= nil then
+		  for _, alert in pairs(alerts[defines.alert_type.entity_destroyed]) do
+  		  construct_turret(player, alert.position)
+				end
+		end
 
-  if next(missing_construction_object_alerts) == nil then
-    local roboport_position = next_roboport_position(player)
-    construct_roboport(player, roboport_position)
-    return
-  end
+		if missing_construction_object_alerts ~= nil then
+		  if next(missing_construction_object_alerts) == nil then
+  		  local roboport_position = next_roboport_position(player)
+    		construct_roboport(player, roboport_position)
+		    return
+				end
+		end
 
   -- queueに入っている方を優先
   for _, value in pairs(global.build_queue) do
@@ -85,20 +95,22 @@ function build_missing_object(player)
   local missing_roboports = 0
   local initial_position = seed_position()
 
-  for _, alert in pairs(missing_construction_object_alerts) do
-    local missing_object_type = alert.target.ghost_name
-    --log_to(player, "Missing "..missing_object_type)
+		if missing_construction_object_alerts ~= nil then
+		  for _, alert in pairs(missing_construction_object_alerts) do
+  		  local missing_object_type = alert.target.ghost_name
+    		--log_to(player, "Missing "..missing_object_type)
 
-    if missing_object_type == "roboport" then
-      missing_roboports = missing_roboports + 1
-    end
+		    if missing_object_type == "roboport" then
+  		    missing_roboports = missing_roboports + 1
+    		end
 
-    global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
+		    global.logistic_system_total_request[missing_object_type] = (global.logistic_system_total_request[missing_object_type] or 0) - 1
 
-    add_queue(missing_object_type, initial_position)
+  		  add_queue(missing_object_type, initial_position)
 
-    --construct_from_blueprint(player, missing_object_type, initial_position)
-  end
+    		--construct_from_blueprint(player, missing_object_type, initial_position)
+				end
+		end
 
   if missing_roboports == 0 then
     local roboport_position = next_roboport_position(player)
@@ -172,7 +184,7 @@ function construct_from_blueprint(player, object_type, position, radius)
   end
 
   local assembler = entities["assembling-machine-3"]
-  assembler.recipe = object_type
+  assembler.set_recipe(object_type)
 
   local requester_chest = entities["logistic-chest-requester"]
   local logistic_network = logistic_network_covered(player, requester_chest)
@@ -185,7 +197,7 @@ function construct_from_blueprint(player, object_type, position, radius)
 
   local logistic_system_storage = get_logistic_system_storage(player)
 
-  for i, ingredient in pairs(assembler.recipe.ingredients) do  -- assembler.recipe is LuaRecipe, not String
+  for i, ingredient in pairs(assembler.get_recipe().ingredients) do  -- assembler.recipe is LuaRecipe, not String
     local ingredient_amount = math.min(ingredient.amount * 10, 100)
     
     requester_chest.set_request_slot({name=ingredient.name, count=ingredient_amount}, i)
