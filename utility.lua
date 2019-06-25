@@ -1,4 +1,4 @@
-require "util"  -- I don't know what it does
+require "util"
 require "math2d"
 
 -- Utility

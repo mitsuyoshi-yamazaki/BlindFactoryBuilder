@@ -1,4 +1,4 @@
-require "util"  -- I don't know what it does
+require "util"
 require "math2d"
 
 function selected_logistic_network_position(player)

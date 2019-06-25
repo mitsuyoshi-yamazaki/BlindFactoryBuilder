@@ -1,4 +1,4 @@
-require "util"  -- I don't know what it does
+require "util"
 require "logistic_network"
 
 OFF = false
