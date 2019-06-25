@@ -1,6 +1,6 @@
 # Blueprints
 
-Blueprints used in v0.0.1
+Blueprints used in v0.1.0
 
 ## for Factory
 
