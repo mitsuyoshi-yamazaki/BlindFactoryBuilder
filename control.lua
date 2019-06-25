@@ -8,7 +8,8 @@ require "logistic_network"
 --
 
 script.on_event(defines.events.on_tick, function(event)
-  for _, player in pairs(game.players) do
+		for _, player in pairs(game.players) do
+				player.print("fuga")
     blind_factory_builder(player)
   end
 end)
@@ -16,13 +17,14 @@ end)
 -- Functions
 
 function blind_factory_builder(player)
+		print_to(player, "hoge")
   if OFF then 
     return 
   end
 
   if game.tick % 240 ~= 0 then
     return
-  end
+		end
 
   if initialize(player) ~= true then
     return
