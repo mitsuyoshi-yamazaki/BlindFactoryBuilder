@@ -7,7 +7,7 @@ require "utility"
 -- TODO: move setup_factory() to on_configuration_changed event
 script.on_event(defines.events.on_player_cheat_mode_enabled, function(event)
 	for _, player in pairs(game.players) do
-  setup_factory(player.force)
+  setup_factory(player)
 	end
 end)
 
@@ -50,7 +50,9 @@ function enable_cheat_mode(player)
 	return false
 end
 
-function setup_factory(force)
+function setup_factory(player)
+	local force = player.force 
+
 	if global.factory == nil then
 		global.factory = {}
 	end
@@ -59,7 +61,15 @@ function setup_factory(force)
 	end
 
 	global.factory[force.name] = {}
-	global.factory[force.name].recipes = force.recipes
+	--global.factory[force.name].recipes = force.recipes
+
+	construct_base_factory(player)
+end
+
+function construct_base_factory(player)
+	local force = player.force 
+
+
 end
 
 function get_all_recipes(player)
