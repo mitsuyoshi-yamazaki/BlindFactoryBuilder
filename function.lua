@@ -5,6 +5,18 @@ require "initializer"
 require "utility"
 require "logistic_network"
 
+function expand(player)
+  local logistic_network = seed_logistic_network(player)
+  global.logistic_system_storage = _get_logistic_system_storage(player, logistic_network)
+  global.logistic_system_total_request = _get_logistic_system_total_request(player, logistic_network)
+
+  build_missing_object(player)
+
+  if game.tick % 600 == 0 then
+    check_missing_resources(player)
+  end
+end
+
 function get_init_blueprints(player)
   local selected_entity = player.selected
   if selected_entity == nil then

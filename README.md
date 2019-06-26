@@ -4,6 +4,11 @@ It aims to express Blind Watchmaker in the Factorio world.
 
 Self-expansion factory basically follows its blueprint but interactions with the nature, biters and players can make each factories unique and unpredictable.
 
+## Status
+
+- Multiplayer is NOT supported yet
+  - may or may not work propery
+
 ## Installation
 
 ### for Debugging
